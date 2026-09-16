@@ -1,0 +1,39 @@
+name: Semgrep scan of contributed cases
+
+# Runs on every pull request that touches a case. Read-only: it never needs secrets, so it is safe on PRs from forks.
+# Fails the check on ERROR-severity findings in the changed case folders (secrets, injection, unsafe deserialization…),
+# and posts the findings as a comment-free summary in the PR checks tab.
+
+on:
+  pull_request:
+    paths: ["cases/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+      - run: pip install semgrep
+      - name: Scan changed case folders
+        run: |
+          changed=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} -- cases/ | xargs -r -n1 dirname | sort -u)
+          echo "Changed folders:"; echo "$changed"
+          [ -z "$changed" ] && { echo "nothing to scan"; exit 0; }
+          semgrep scan --config p/security-audit --config p/secrets --config p/python --config p/javascript \
+            --severity ERROR --error --json --output semgrep.json $changed || status=$?
+          python - <<'EOF'
+          import json, os
+          d = json.load(open("semgrep.json")) if os.path.exists("semgrep.json") else {"results": []}
+          rows = [f"- `{r['path']}:{r['start']['line']}` {r['check_id'].split('.')[-1]} — {r['extra']['message'][:120]}" for r in d["results"]]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write(f"## Semgrep: {len(rows)} ERROR-level finding(s)\n\n" + ("\n".join(rows) if rows else "None. Nice.") + "\n")
+          EOF
+          exit ${status:-0}

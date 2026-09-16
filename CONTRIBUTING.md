@@ -11,7 +11,9 @@ Plan on two to four hours for a first case. The write-up matters more than the c
    Put notebooks, scripts, images and small data files (under 5 MB) in the same folder.
 4. **Commit and push** to your fork, then open a **pull request** against `main`. The pull request
    template asks you three questions; answer them in a sentence each.
-5. A TLDP staff member reviews within a week. Address comments by pushing more commits to the same
+5. An automatic Semgrep security scan runs on your pull request (secrets, injection, unsafe code). If it
+   fails, open the "Checks" tab, fix what it points at, and push again. It never blocks a write-up-only case.
+6. A TLDP staff member reviews within a week. Address comments by pushing more commits to the same
    branch. When it merges, the bot posts your case in Discord.
 
 ## What makes a case good
